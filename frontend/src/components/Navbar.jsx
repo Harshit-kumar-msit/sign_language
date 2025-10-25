@@ -40,7 +40,7 @@ const Navbar = () => {
       <div className={`navbar-container ${navmod ? 'bg-gray-700' : 'bg-white'}`}>
         <div className="navbar-content">
           <h3 className="navbar-logo">
-            SignAI
+            Sign<span style={{ color: '#b2f583ff' }}>Bridge</span>
           </h3>
           
           {/* Desktop Navigation */}
