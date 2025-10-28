@@ -27,7 +27,7 @@ const LandingPage = () => {
   return (
     <div ref={landingPageRef} className='landingPage'>
         <div className="content">
-            <h1 className='word'>Welcome to SignAI</h1>
+            <h1 className='word'>Welcome to Sign<span style={{ color: '#b2f583ff' }}>Bridge</span></h1>
             <p className='word'>Your AI-powered sign language translator</p>
             <button className='word'>Try it</button>
         </div>
