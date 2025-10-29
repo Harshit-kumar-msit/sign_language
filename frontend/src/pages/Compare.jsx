@@ -1,3 +1,4 @@
+// ...existing code...
 import React, { useState, useEffect } from "react";
 import VideoFeed from "../components/VideoFeed";
 import ModelComparison from "../components/ModelComparison";
@@ -16,50 +17,42 @@ const Compare = () => {
   const [cameraDenied, setCameraDenied] = useState(false);
 
   useEffect(() => {
-    const requestCameraAccess = async () => {
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-        setCameraReady(true);
-        stream.getTracks().forEach((track) => track.stop());
-      } catch (err) {
-        console.error("Camera access denied or failed:", err);
-        setCameraDenied(true);
-      }
-    };
+    let mounted = true;
+    let permissionStatus = null;
 
     const checkCameraPermission = async () => {
       try {
         if (!navigator.permissions) {
-          await requestCameraAccess();
+          // Permissions API not available — let VideoFeed request access when mounted
           return;
         }
 
-        const result = await navigator.permissions.query({ name: "camera" });
+        permissionStatus = await navigator.permissions.query({ name: "camera" });
+        if (!mounted) return;
+        setCameraReady(permissionStatus.state === "granted");
+        setCameraDenied(permissionStatus.state === "denied");
 
-        if (result.state === "granted") {
-          setCameraReady(true);
-        } else if (result.state === "prompt") {
-          await requestCameraAccess();
-        } else if (result.state === "denied") {
-          setCameraDenied(true);
-        }
-
-        result.onchange = () => {
-          if (result.state === "granted") {
-            setCameraReady(true);
-            setCameraDenied(false);
-          } else if (result.state === "denied") {
-            setCameraDenied(true);
-            setCameraReady(false);
-          }
+        permissionStatus.onchange = () => {
+          if (!mounted) return;
+          setCameraReady(permissionStatus.state === "granted");
+          setCameraDenied(permissionStatus.state === "denied");
         };
       } catch (err) {
-        console.error("Camera permission check failed:", err);
-        await requestCameraAccess();
+        console.warn("Camera permission check failed:", err);
       }
     };
 
     checkCameraPermission();
+
+    return () => {
+      mounted = false;
+      if (permissionStatus) {
+        try {
+          permissionStatus.onchange = null;
+        } catch(e) {console.error(e)}
+        permissionStatus = null;
+      }
+    };
   }, []);
 
   // Mock prediction updates
@@ -83,16 +76,13 @@ const Compare = () => {
 
         <div className="flex flex-col items-center justify-center bg-white/60 backdrop-blur-lg border border-gray-300 rounded-3xl shadow-md p-6 md:p-8 mb-10 transition-all hover:shadow-lg">
           <div className="relative w-full aspect-video rounded-2xl overflow-hidden border border-gray-400 shadow-inner">
-            {cameraReady ? (
-              <VideoFeed />
-            ) : cameraDenied ? (
+            {cameraDenied ? (
               <div className="flex items-center justify-center w-full h-full bg-gray-200 text-gray-600 text-lg font-medium">
                 Camera access denied. Please enable it in your browser settings.
               </div>
             ) : (
-              <div className="flex items-center justify-center w-full h-full bg-gray-200 text-gray-600 text-lg font-medium">
-                Requesting camera access...
-              </div>
+              // Let VideoFeed request and own the camera stream
+              <VideoFeed />
             )}
           </div>
           <p className="mt-4 text-gray-700 text-sm md:text-base">
@@ -120,3 +110,4 @@ const Compare = () => {
 };
 
 export default Compare;
+// ...existing code...
