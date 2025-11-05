@@ -1,0 +1,7 @@
+env/
+venv/
+node_modules/
+.env
+uploads/
+../__pycache__
+/routes/__pycache__
