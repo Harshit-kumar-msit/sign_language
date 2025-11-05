@@ -1,4 +1,4 @@
-import React, { useRef, useEffect } from "react";
+import React, { useRef, useEffect, useState } from "react";
 import {
   FilesetResolver,
   HandLandmarker,
@@ -11,6 +11,12 @@ const VideoFeed = () => {
   const handLandmarkerRef = useRef(null);
   const animationRef = useRef(null);
   const streamRef = useRef(null);
+  const framesBufferRef = useRef([]);
+  const TARGET_FRAMES = 8; // must match backend/train
+  const [prediction, setPrediction] = useState(null);
+  const recentPredsRef = useRef([]);
+  const SMOOTH_WINDOW = 5; // majority vote window
+  const CONF_THRESH = 0.35; // ignore low-confidence predictions
 
   useEffect(() => {
     let isActive = true;
@@ -106,6 +112,40 @@ const VideoFeed = () => {
               radius: 4,
             });
           });
+
+          // extract flattened features for up to 2 hands (21 landmarks each, x,y,z)
+          const frameFeat = getFrameFeatures(results.landmarks);
+          // push into circular buffer
+          framesBufferRef.current.push(frameFeat);
+          if (framesBufferRef.current.length >= TARGET_FRAMES) {
+            // copy next sequence
+            const seq = framesBufferRef.current.slice(-TARGET_FRAMES);
+            // send to backend (don't await to avoid blocking render)
+            sendSequence(seq).then((res) => {
+              if (res && res.label) {
+                // smoothing: accept only confident predictions, then majority vote
+                if ((res.confidence || 0) >= CONF_THRESH) {
+                  recentPredsRef.current.push(res.label);
+                  if (recentPredsRef.current.length > SMOOTH_WINDOW) recentPredsRef.current.shift();
+                  // compute majority
+                  const counts = {};
+                  for (const p of recentPredsRef.current) counts[p] = (counts[p] || 0) + 1;
+                  let best = null; let bestc = 0;
+                  for (const k of Object.keys(counts)) {
+                    if (counts[k] > bestc) { best = k; bestc = counts[k]; }
+                  }
+                  setPrediction({ label: best, confidence: res.confidence, raw: res });
+                } else {
+                  // low confidence: keep previous prediction but shrink history
+                  recentPredsRef.current = recentPredsRef.current.slice(-Math.floor(SMOOTH_WINDOW/2));
+                }
+              }
+            }).catch((e) => console.warn('predict error', e));
+            // keep buffer (sliding window) - drop oldest to keep size manageable
+            if (framesBufferRef.current.length > TARGET_FRAMES * 3) {
+              framesBufferRef.current = framesBufferRef.current.slice(-TARGET_FRAMES * 2);
+            }
+          }
         }
       } catch (err) {
         console.warn("Frame skipped due to detection error:", err?.message || err);
@@ -113,6 +153,42 @@ const VideoFeed = () => {
 
       animationRef.current = requestAnimationFrame(renderLoop);
       captured.raf = animationRef.current;
+    };
+
+    // build per-frame feature vector (two hands, 21 landmarks each, x,y,z => 126 dims)
+    const getFrameFeatures = (landmarksArray) => {
+      const feat = new Array(21 * 3 * 2).fill(0);
+      // landmarksArray is an array of hands; place first hand at slot 0, second at slot 1
+      for (let h = 0; h < Math.min(2, landmarksArray.length); h++) {
+        const lmArr = landmarksArray[h];
+        const base = h * 21 * 3;
+        for (let i = 0; i < Math.min(21, lmArr.length); i++) {
+          const lm = lmArr[i];
+          // some landmarks may be objects with x,y,z
+          feat[base + i * 3 + 0] = lm.x ?? 0;
+          feat[base + i * 3 + 1] = lm.y ?? 0;
+          feat[base + i * 3 + 2] = lm.z ?? 0;
+        }
+      }
+      return feat;
+    };
+
+    const sendSequence = async (sequence) => {
+      try {
+        const res = await fetch('http://localhost:5000/api/predict_kp', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ sequence }),
+        });
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          throw new Error(err.error || 'server error');
+        }
+        return await res.json();
+      } catch (e) {
+        console.warn('sendSequence failed', e);
+        return null;
+      }
     };
 
     init();
@@ -195,6 +271,13 @@ const VideoFeed = () => {
         className="absolute top-0 left-0 w-full h-full pointer-events-none"
         style={{ transform: "scaleX(-1)" }}
       />
+      {/* prediction overlay */}
+      {prediction && (
+        <div style={{ position: 'absolute', right: 12, top: 12, background: 'rgba(255,255,255,0.85)', padding: '8px 12px', borderRadius: 12 }}>
+          <div style={{ fontWeight: 700, color: '#111' }}>{prediction.label}</div>
+          <div style={{ fontSize: 12, color: '#333' }}>Conf: {(prediction.confidence || 0).toFixed(2)}</div>
+        </div>
+      )}
     </div>
   );
 };
