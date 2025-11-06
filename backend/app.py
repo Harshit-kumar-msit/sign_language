@@ -9,7 +9,7 @@ CORS(app)
 
 # choose model file from repo root if available
 BASE_DIR = os.path.dirname(os.path.dirname(__file__))
-DEFAULT_LSTM = os.path.join(BASE_DIR, 'gesture_lstm_cpu.pth')
+DEFAULT_LSTM = os.path.join(BASE_DIR, 'gesture_lstm_cpu_3.pth')
 
 # instantiate model wrapper (LSTM/keypoint-based) by default
 model = ModelWrapper(model_type='lstm', model_path=DEFAULT_LSTM, device='cpu')

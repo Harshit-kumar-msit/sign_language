@@ -6,20 +6,35 @@ import torch.nn as nn
 
 # --- Model definitions (same architecture used in training notebook) ---
 class GestureLSTM(nn.Module):
-    def __init__(self, input_dim, hidden_dim=64, num_classes=5, num_layers=1, bidirectional=True):
-        super().__init__()
-        self.bidirectional = bidirectional
-        self.hidden_dim = hidden_dim
-        self.num_layers = num_layers
-        self.lstm = nn.LSTM(input_dim, hidden_dim, num_layers=num_layers, batch_first=True, bidirectional=bidirectional)
-        fc_in = hidden_dim * (2 if bidirectional else 1)
-        self.classifier = nn.Linear(fc_in, num_classes)
+    def __init__(self, input_dim, hidden_dim=64, num_classes=5, num_layers=1,dropout=0.3, bidirectional=True):
+        # super().__init__()
+        # self.bidirectional = bidirectional
+        # self.hidden_dim = hidden_dim
+        # self.num_layers = num_layers
+        # self.lstm = nn.LSTM(input_dim, hidden_dim, num_layers=num_layers, batch_first=True, bidirectional=bidirectional)
+        # fc_in = hidden_dim * (2 if bidirectional else 1)
+        # self.classifier = nn.Linear(fc_in, num_classes)
+        super(GestureLSTM, self).__init__()
+        
+        self.lstm = nn.LSTM(
+            input_size=input_dim,
+            hidden_size=hidden_dim,
+            num_layers=num_layers,
+            batch_first=True,
+            bidirectional=True,
+            dropout=dropout if num_layers > 1 else 0
+        )
+        self.fc = nn.Sequential(
+            nn.Dropout(dropout),
+            nn.Linear(hidden_dim * 2, num_classes)
+        )
 
     def forward(self, x):
         # x: (batch, seq_len, input_dim)
         out, _ = self.lstm(x)        # out shape: (batch, seq_len, hidden_dim * num_directions)
         out_last = out[:, -1, :]     # take last timestep
-        logits = self.classifier(out_last)
+        # logits = self.classifier(out_last)
+        logits=self.fc(out_last)
         return logits
 
 
