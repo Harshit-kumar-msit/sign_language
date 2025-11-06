@@ -17,6 +17,8 @@ const VideoFeed = () => {
   const recentPredsRef = useRef([]);
   const SMOOTH_WINDOW = 5; // majority vote window
   const CONF_THRESH = 0.35; // ignore low-confidence predictions
+  const lastSpokenRef = useRef({ label: null, time: 0 });
+  const SPEAK_COOLDOWN = 2000; // ms
 
   useEffect(() => {
     let isActive = true;
@@ -255,6 +257,27 @@ const VideoFeed = () => {
       }
     };
   }, []);
+
+  // Speak the current prediction using browser TTS with a cooldown to avoid repeats
+  useEffect(() => {
+    if (!prediction) return;
+    if (typeof window === 'undefined' || !window.speechSynthesis) return;
+    try {
+      const now = performance.now();
+      const last = lastSpokenRef.current;
+      if (prediction.label && (now - last.time > SPEAK_COOLDOWN) && prediction.label !== last.label) {
+        const u = new SpeechSynthesisUtterance(prediction.label);
+        u.lang = 'en-US';
+        u.rate = 1.0;
+        // cancel any pending and speak
+        window.speechSynthesis.cancel();
+        window.speechSynthesis.speak(u);
+        lastSpokenRef.current = { label: prediction.label, time: now };
+      }
+    } catch (e) {
+      console.warn('TTS failed', e);
+    }
+  }, [prediction]);
 
   return (
     <div className="relative w-full h-full rounded-2xl overflow-hidden bg-gray-900">
