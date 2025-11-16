@@ -14,11 +14,14 @@ const VideoFeed = () => {
   const framesBufferRef = useRef([]);
   const TARGET_FRAMES = 8; // must match backend/train
   const [prediction, setPrediction] = useState(null);
+  const [emotion, setEmotion] = useState(null);
   const recentPredsRef = useRef([]);
   const SMOOTH_WINDOW = 5; // majority vote window
   const CONF_THRESH = 0.35; // ignore low-confidence predictions
   const lastSpokenRef = useRef({ label: null, time: 0 });
   const SPEAK_COOLDOWN = 2000; // ms
+  const EMOTION_INTERVAL = 3000; // ms between emotion captures
+  const lastEmotionRef = useRef(0);
 
   useEffect(() => {
     let isActive = true;
@@ -71,6 +74,14 @@ const VideoFeed = () => {
           animationRef.current = requestAnimationFrame(renderLoop);
           captured.raf = animationRef.current;
           captured.canvas = canvasRef.current;
+          // start periodic emotion capture (offscreen capture)
+          try {
+            captured.emotionInterval = setInterval(() => {
+              captureAndSendEmotion(video);
+            }, EMOTION_INTERVAL);
+          } catch (e) {
+            console.warn('Failed to start emotion capture interval', e);
+          }
         };
       } catch (err) {
         console.error("Error initializing camera or model:", err);
@@ -193,6 +204,46 @@ const VideoFeed = () => {
       }
     };
 
+    const captureAndSendEmotion = async (videoEl) => {
+      try {
+        if (!videoEl || videoEl.videoWidth === 0 || videoEl.videoHeight === 0) return;
+        const now = performance.now();
+        // throttle by EMOTION_INTERVAL
+        if (now - lastEmotionRef.current < EMOTION_INTERVAL - 50) return;
+        lastEmotionRef.current = now;
+
+        const off = document.createElement('canvas');
+        off.width = videoEl.videoWidth;
+        off.height = videoEl.videoHeight;
+        const ctx = off.getContext('2d');
+        // draw non-mirrored frame for FER (FER expects regular image)
+        ctx.drawImage(videoEl, 0, 0, off.width, off.height);
+        const dataUrl = off.toDataURL('image/jpeg', 0.8);
+
+        const res = await fetch('http://localhost:5000/api/predict_emotion', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ image: dataUrl }),
+        });
+        if (!res.ok) {
+          // if FER not available server returns 503 with error message
+          const err = await res.json().catch(() => ({}));
+          if (res.status === 503) {
+            console.warn('Emotion service unavailable:', err.error || err);
+            setEmotion({ label: 'Unavailable', score: 0 });
+            return;
+          }
+          throw new Error(err.error || 'emotion server error');
+        }
+        const body = await res.json();
+        if (body.label) {
+          setEmotion({ label: body.label, score: body.score || 0 });
+        }
+      } catch (e) {
+        console.warn('captureAndSendEmotion failed', e);
+      }
+    };
+
     init();
 
     return () => {
@@ -227,6 +278,13 @@ const VideoFeed = () => {
           console.warn("Failed to stop fallback tracks:", e);
         }
         videoEl.srcObject = null;
+      }
+
+      // clear emotion interval if set
+      try {
+        if (captured.emotionInterval) clearInterval(captured.emotionInterval);
+      } catch (e) {
+        console.warn('Failed to clear emotion interval', e);
       }
 
       if (videoEl) {
@@ -279,6 +337,12 @@ const VideoFeed = () => {
     }
   }, [prediction]);
 
+  // optional: small visual effect or TTS for emotion (no TTS by default)
+  useEffect(() => {
+    // could add voice feedback for emotions, but keep it optional to avoid spam
+    return () => {};
+  }, [emotion]);
+
   return (
     <div className="relative w-full h-full rounded-2xl overflow-hidden bg-gray-900">
       <video
@@ -299,6 +363,13 @@ const VideoFeed = () => {
         <div style={{ position: 'absolute', right: 12, top: 12, background: 'rgba(255,255,255,0.85)', padding: '8px 12px', borderRadius: 12 }}>
           <div style={{ fontWeight: 700, color: '#111' }}>{prediction.label}</div>
           <div style={{ fontSize: 12, color: '#333' }}>Conf: {(prediction.confidence || 0).toFixed(2)}</div>
+        </div>
+      )}
+      {/* emotion overlay */}
+      {emotion && (
+        <div style={{ position: 'absolute', left: 12, top: 12, background: 'rgba(255,255,255,0.9)', padding: '6px 10px', borderRadius: 10 }}>
+          <div style={{ fontWeight: 700, color: '#111' }}>{emotion.label}</div>
+          <div style={{ fontSize: 12, color: '#333' }}>Score: {(emotion.score || 0).toFixed(2)}</div>
         </div>
       )}
     </div>
