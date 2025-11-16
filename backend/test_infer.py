@@ -23,7 +23,8 @@ if __name__ == '__main__':
 
     # instantiate model wrapper (same as app)
     repo_root = os.path.normpath(os.path.join(os.path.dirname(__file__), '..'))
-    pth = os.path.join(repo_root, 'gesture_lstm_cpu.pth')
+    # use the best LSTM model by default
+    pth = os.path.join(repo_root, 'gesture_lstm_cpu_best.pth')
     m = ModelWrapper(model_type='lstm', model_path=pth, device='cpu')
 
     arr = np.load(sample_path).astype(np.float32)
