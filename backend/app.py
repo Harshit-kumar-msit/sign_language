@@ -3,6 +3,9 @@ from flask_cors import CORS
 import os
 
 from models import ModelWrapper
+import base64
+import cv2
+import numpy as np
 
 app = Flask(__name__)
 CORS(app)
@@ -14,6 +17,28 @@ DEFAULT_LSTM = os.path.join(BASE_DIR, 'gesture_lstm_cpu_best.pth')
 
 # instantiate model wrapper (LSTM/keypoint-based) by default
 model = ModelWrapper(model_type='lstm', model_path=DEFAULT_LSTM, device='cpu')
+
+# instantiate FER face emotion detector (singleton)
+face_detector = None
+try:
+	# import FER lazily so the server can still start even if fer isn't installed
+	# try the package-level export first, then fall back to the module path
+	try:
+		from fer import FER
+	except Exception:
+		from fer.fer import FER
+except Exception as e:
+	app.logger.warning(
+		'FER package import failed or is not exposing FER class: %s. /api/predict_emotion may be unavailable until you fix the installation (see backend/requirements.txt).',
+		e,
+	)
+else:
+	try:
+		face_detector = FER(mtcnn=True)
+		app.logger.info('FER detector initialized')
+	except Exception as e:
+		face_detector = None
+		app.logger.warning('FER init failed: %s. /api/predict_emotion will be available but may return Unknown.', e)
 
 
 @app.route('/api/health', methods=['GET'])
@@ -58,6 +83,36 @@ def debug_save():
 		_np.save(path, arr)
 		app.logger.info(f"Saved debug sequence to {path} shape={arr.shape}")
 		return jsonify({'saved': os.path.relpath(path, start=os.path.dirname(__file__)), 'shape': list(arr.shape), 'min': float(arr.min()), 'max': float(arr.max())})
+	except Exception as e:
+		return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/predict_emotion', methods=['POST'])
+def predict_emotion():
+	data = request.get_json()
+	if not data or 'image' not in data:
+		return jsonify({'error': "missing 'image' in JSON body"}), 400
+	img_b64 = data['image']
+	# strip data URL prefix if present
+	if ',' in img_b64:
+		img_b64 = img_b64.split(',', 1)[1]
+	try:
+		img_bytes = base64.b64decode(img_b64)
+		nparr = np.frombuffer(img_bytes, np.uint8)
+		frame = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+		if frame is None:
+			return jsonify({'label': 'Unknown', 'score': 0.0})
+		# convert to RGB for FER
+		rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+		if face_detector is None:
+			# FER not available/initialized on server
+			return jsonify({'error': 'FER not available on server. Install fer and dependencies.'}), 503
+		top = face_detector.top_emotion(rgb)
+		if top is None:
+			return jsonify({'label': 'Unknown', 'score': 0.0})
+		label, score = top
+		app.logger.info(f'predict_emotion -> {label} score={score:.3f}')
+		return jsonify({'label': label, 'score': float(score)})
 	except Exception as e:
 		return jsonify({'error': str(e)}), 500
 
