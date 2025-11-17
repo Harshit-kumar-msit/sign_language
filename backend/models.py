@@ -78,7 +78,7 @@ class ModelWrapper:
             labels = sorted([d for d in os.listdir(kp_root) if os.path.isdir(os.path.join(kp_root, d))])
         else:
             # fallback to a sensible default
-            labels = ["Food", "I", "Sorry", "ThankYou", "Water"]
+            labels = ["Food", "I", "Sorry", "Thank You", "Water"]
         self.labels = labels
 
         # determine feature dim by reading a sample keypoint file if present

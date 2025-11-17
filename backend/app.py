@@ -1,6 +1,7 @@
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 import os
+import requests
 
 from models import ModelWrapper
 import base64
@@ -85,6 +86,58 @@ def debug_save():
 		return jsonify({'saved': os.path.relpath(path, start=os.path.dirname(__file__)), 'shape': list(arr.shape), 'min': float(arr.min()), 'max': float(arr.max())})
 	except Exception as e:
 		return jsonify({'error': str(e)}), 500
+
+@app.route('/api/translate', methods=['POST'])
+def translate_proxy():
+    data = request.get_json() or {}
+    text = (data.get("text", "") or "").strip()
+    target = (data.get("target", "") or "").strip()
+
+    if not text or not target:
+        return jsonify({"error": "missing text or target"}), 400
+
+    primary = target.split("-")[0].lower()
+
+    print("TEXT RECEIVED:", repr(text))
+    print("TARGET RECEIVED:", repr(primary))
+
+    alphabet_hi = {
+        "i": "मैं",
+    }
+
+    # custom rule for single character "I"
+    if len(text) == 1 and text.lower() in alphabet_hi and primary == "hi":
+        return jsonify({"translation": alphabet_hi[text.lower()]})
+
+    # Google translate fallback
+    try:
+        params = {
+            "client": "gtx",
+            "sl": "en",
+            "tl": primary,
+            "dt": "t",
+            "q": text
+        }
+
+        resp = requests.get(
+            "https://translate.googleapis.com/translate_a/single",
+            params=params,
+            timeout=10
+        )
+
+        if resp.ok:
+            arr = resp.json()
+            translated = arr[0][0][0] if arr and arr[0] and arr[0][0] else text
+            return jsonify({"translation": translated})
+
+        print("GOOGLE RESP NOT OK:", resp.status_code, resp.text)
+
+    except Exception as e:
+        print("GOOGLE ERROR:", e)
+
+    return jsonify({"translation": text})
+
+
 
 
 @app.route('/api/predict_emotion', methods=['POST'])

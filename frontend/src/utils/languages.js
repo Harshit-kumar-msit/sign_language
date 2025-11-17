@@ -1,0 +1,27 @@
+// canonical language list with recommended BCP-47 tags for TTS (use tag for speechSynthesis.lang)
+const LANGUAGES = [
+  { code: "en", tag: "en-US", name: "English" },
+  { code: "en-GB", tag: "en-GB", name: "English (UK)" },
+  { code: "hi", tag: "hi-IN", name: "हिन्दी" },
+  { code: "es", tag: "es-ES", name: "Español (ES)" },
+  { code: "es-MX", tag: "es-MX", name: "Español (MX)" },
+  { code: "fr", tag: "fr-FR", name: "Français" },
+  { code: "de", tag: "de-DE", name: "Deutsch" },
+  { code: "pt-BR", tag: "pt-BR", name: "Português (BR)" },
+  { code: "pt-PT", tag: "pt-PT", name: "Português (PT)" },
+  { code: "ru", tag: "ru-RU", name: "Русский" },
+  { code: "zh", tag: "zh-CN", name: "中文 (简体)" },
+  { code: "zh-TW", tag: "zh-TW", name: "中文 (繁體)" },
+  { code: "ja", tag: "ja-JP", name: "日本語" },
+  { code: "ko", tag: "ko-KR", name: "한국어" },
+  { code: "ar", tag: "ar-SA", name: "العربية" },
+  { code: "it", tag: "it-IT", name: "Italiano" },
+  { code: "nl", tag: "nl-NL", name: "Nederlands" },
+  { code: "tr", tag: "tr-TR", name: "Türkçe" },
+  { code: "pl", tag: "pl-PL", name: "Polski" },
+  { code: "sv", tag: "sv-SE", name: "Svenska" },
+  { code: "id", tag: "id-ID", name: "Bahasa Indonesia" },
+  { code: "vi", tag: "vi-VN", name: "Tiếng Việt" },
+  { code: "bn", tag: "bn-IN", name: "বাংলা (India)" }, 
+];
+export default LANGUAGES;
