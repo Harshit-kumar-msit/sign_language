@@ -4,6 +4,7 @@ import {
   HandLandmarker,
   DrawingUtils,
 } from "@mediapipe/tasks-vision";
+import JSConfetti from "js-confetti";
 import LANGUAGES from "../utils/languages";
 
 const VideoFeed = () => {
@@ -14,6 +15,8 @@ const VideoFeed = () => {
   const streamRef = useRef(null);
   const framesBufferRef = useRef([]);
   const translateCacheRef = useRef({});
+  const jsConfettiRef = useRef(null);
+  
   const TARGET_FRAMES = 8;
 
   const [prediction, setPrediction] = useState(null);
@@ -34,11 +37,20 @@ const VideoFeed = () => {
 
   const [lang, setLang] = useState(defaultLang);
 
-  // 🔥 FIX: Always use latest language inside renderLoop
   const langRef = useRef(lang);
   useEffect(() => {
     langRef.current = lang;
   }, [lang]);
+
+  const fireEmoji = (emoji) => {
+    if (!jsConfettiRef.current) return;
+
+    jsConfettiRef.current.addConfetti({
+      emojis: [emoji],
+      emojiSize: 50,
+      confettiNumber: 40,
+    });
+  };
 
   const getTagFor = (code) => {
     const entry = LANGUAGES.find(
@@ -81,6 +93,7 @@ const VideoFeed = () => {
 
     const now = performance.now();
     const last = lastSpokenRef.current;
+
     if (text === last.label && now - last.time < SPEAK_COOLDOWN) return;
 
     const targetTag = getTagFor(langCode);
@@ -114,7 +127,7 @@ const VideoFeed = () => {
     }
   };
 
-  // INITIALIZE CAMERA + MODEL
+  // MAIN INITIALIZER
   useEffect(() => {
     let isActive = true;
     const captured = {
@@ -168,6 +181,7 @@ const VideoFeed = () => {
           captured.raf = animationRef.current;
           captured.canvas = canvasRef.current;
 
+          jsConfettiRef.current = new JSConfetti({ canvas: canvasRef.current });
           captured.emotionInterval = setInterval(() => {
             captureAndSendEmotion(video);
           }, EMOTION_INTERVAL);
@@ -177,12 +191,10 @@ const VideoFeed = () => {
       }
     };
 
-    // RENDER LOOP (GESTURES)
     const renderLoop = async () => {
       if (!isActive || !videoRef.current || !handLandmarkerRef.current) return;
 
-      const currentLang = langRef.current; // 🔥 always fresh language
-
+      const currentLang = langRef.current;
       const video = videoRef.current;
       const canvas = canvasRef.current;
 
@@ -245,7 +257,6 @@ const VideoFeed = () => {
 
                   const rawServerLabel = res.label ?? bestId;
 
-                  // 🔥 Translate using FRESH language
                   let display = rawServerLabel;
                   if (!currentLang.startsWith("en")) {
                     display = await translateOnDemand(rawServerLabel, currentLang);
@@ -335,8 +346,20 @@ const VideoFeed = () => {
         }
 
         const body = await res.json();
-        if (body.label)
+        if (body.label) {
           setEmotion({ label: body.label, score: body.score || 0 });
+
+          if ((body.score || 0) <= 0.5) return;
+
+      const em = body.label.toLowerCase();
+
+      if (em.includes("happy")) fireEmoji("😄");
+      else if (em.includes("sad")) fireEmoji("😢");
+      else if (em.includes("angry")) fireEmoji("😡");
+      else if (em.includes("surprise")) fireEmoji("😲");
+      else fireEmoji("🙂");
+    };
+        
       } catch {}
     };
 
@@ -388,11 +411,11 @@ const VideoFeed = () => {
     };
   }, []);
 
-  // LANGUAGE CHANGE RETRANSLATE
+  // LANGUAGE RETRANSLATION
   useEffect(() => {
     if (!prediction) return;
 
-    translateCacheRef.current = {}; // clear cache
+    translateCacheRef.current = {};
 
     (async () => {
       const rawServerLabel = prediction.raw?.label || prediction.id;
@@ -406,7 +429,7 @@ const VideoFeed = () => {
     })();
   }, [lang]);
 
-  // SPEAK WHEN PREDICTION CHANGES
+  // SPEAK NEW PREDICTION
   useEffect(() => {
     if (!prediction) return;
 
@@ -483,7 +506,7 @@ const VideoFeed = () => {
         </select>
       </div>
 
-      {/* Prediction Overlay */}
+      {/* Prediction */}
       {prediction && (
         <div
           style={{
@@ -504,7 +527,7 @@ const VideoFeed = () => {
         </div>
       )}
 
-      {/* Emotion Overlay */}
+      {/* Emotion */}
       {emotion && (
         <div
           style={{
