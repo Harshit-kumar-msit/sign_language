@@ -4,7 +4,7 @@ import {
   HandLandmarker,
   DrawingUtils,
 } from "@mediapipe/tasks-vision";
-import JSConfetti from "js-confetti";
+// import JSConfetti from "js-confetti";
 import LANGUAGES from "../utils/languages";
 
 const VideoFeed = () => {
@@ -15,7 +15,7 @@ const VideoFeed = () => {
   const streamRef = useRef(null);
   const framesBufferRef = useRef([]);
   const translateCacheRef = useRef({});
-  const jsConfettiRef = useRef(null);
+  // const jsConfettiRef = useRef(null);
   
   const TARGET_FRAMES = 8;
 
@@ -42,15 +42,15 @@ const VideoFeed = () => {
     langRef.current = lang;
   }, [lang]);
 
-  const fireEmoji = (emoji) => {
-    if (!jsConfettiRef.current) return;
+  // const fireEmoji = (emoji) => {
+  //   if (!jsConfettiRef.current) return;
 
-    jsConfettiRef.current.addConfetti({
-      emojis: [emoji],
-      emojiSize: 50,
-      confettiNumber: 40,
-    });
-  };
+  //   jsConfettiRef.current.addConfetti({
+  //     emojis: [emoji],
+  //     emojiSize: 50,
+  //     confettiNumber: 40,
+  //   });
+  // };
 
   const getTagFor = (code) => {
     const entry = LANGUAGES.find(
@@ -181,7 +181,7 @@ const VideoFeed = () => {
           captured.raf = animationRef.current;
           captured.canvas = canvasRef.current;
 
-          jsConfettiRef.current = new JSConfetti({ canvas: canvasRef.current });
+          // jsConfettiRef.current = new JSConfetti({ canvas: canvasRef.current });
           captured.emotionInterval = setInterval(() => {
             captureAndSendEmotion(video);
           }, EMOTION_INTERVAL);
@@ -349,16 +349,16 @@ const VideoFeed = () => {
         if (body.label) {
           setEmotion({ label: body.label, score: body.score || 0 });
 
-          if ((body.score || 0) <= 0.5) return;
+          // if ((body.score || 0) <= 0.5) return;
 
-      const em = body.label.toLowerCase();
+          // const em = body.label.toLowerCase();
 
-      if (em.includes("happy")) fireEmoji("😄");
-      else if (em.includes("sad")) fireEmoji("😢");
-      else if (em.includes("angry")) fireEmoji("😡");
-      else if (em.includes("surprise")) fireEmoji("😲");
-      else fireEmoji("🙂");
-    };
+          // if (em.includes("happy")) fireEmoji("😄");
+          // else if (em.includes("sad")) fireEmoji("😢");
+          // else if (em.includes("angry")) fireEmoji("😡");
+          // else if (em.includes("surprise")) fireEmoji("😲");
+          // else fireEmoji("🙂");
+        }
         
       } catch {}
     };

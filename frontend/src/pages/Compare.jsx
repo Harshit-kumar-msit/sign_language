@@ -1,19 +1,8 @@
 // ...existing code...
 import React, { useState, useEffect } from "react";
 import VideoFeed from "../components/VideoFeed";
-import ModelComparison from "../components/ModelComparison";
-import Loader from "../components/Loader";
-
-const mockPredict = () => ({
-  lstm: "Hello (LSTM)",
-  cnn: "Hello (CNN)",
-});
 
 const Compare = () => {
-  const [lstmResult, setLstmResult] = useState("");
-  const [cnnResult, setCnnResult] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [cameraReady, setCameraReady] = useState(false);
   const [cameraDenied, setCameraDenied] = useState(false);
 
   useEffect(() => {
@@ -23,18 +12,15 @@ const Compare = () => {
     const checkCameraPermission = async () => {
       try {
         if (!navigator.permissions) {
-          // Permissions API not available — let VideoFeed request access when mounted
           return;
         }
 
         permissionStatus = await navigator.permissions.query({ name: "camera" });
         if (!mounted) return;
-        setCameraReady(permissionStatus.state === "granted");
         setCameraDenied(permissionStatus.state === "denied");
 
         permissionStatus.onchange = () => {
           if (!mounted) return;
-          setCameraReady(permissionStatus.state === "granted");
           setCameraDenied(permissionStatus.state === "denied");
         };
       } catch (err) {
@@ -55,17 +41,7 @@ const Compare = () => {
     };
   }, []);
 
-  // Mock prediction updates
-  useEffect(() => {
-    setLoading(true);
-    const interval = setInterval(() => {
-      const { lstm, cnn } = mockPredict();
-      setLstmResult(lstm);
-      setCnnResult(cnn);
-      setLoading(false);
-    }, 2000);
-    return () => clearInterval(interval);
-  }, []);
+
 
   return (
     <main className="min-h-screen flex flex-col items-center justify-center bg-linear-to-br from-gray-100 via-gray-200 to-gray-300 py-12 px-4">
@@ -90,13 +66,55 @@ const Compare = () => {
           </p>
         </div>
 
-        {loading ? (
-          <div className="flex justify-center mt-10">
-            <Loader />
+        {/* Confusion Matrices Section */}
+        <div className="mt-12 w-full max-w-6xl">
+          <h2 className="text-3xl font-bold text-gray-800 mb-6 text-center">
+            Model Performance: Confusion Matrices
+          </h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* LSTM Confusion Matrix */}
+            <div className="bg-white/70 backdrop-blur-lg border border-gray-300 rounded-2xl shadow-md p-6 transition-all hover:shadow-lg">
+              <h3 className="text-xl font-semibold text-gray-800 mb-4 text-center">
+                LSTM Model
+              </h3>
+              <div className="flex justify-center">
+                <img 
+                  src="/confusion_lstm.jpg" 
+                  alt="LSTM Confusion Matrix" 
+                  className="max-w-full h-auto rounded-lg shadow-sm"
+                  onError={(e) => {
+                    e.target.style.display = 'none';
+                    e.target.nextSibling.style.display = 'block';
+                  }}
+                />
+                <div className="hidden text-gray-500 text-sm">
+                  Confusion matrix not available. Place confusion_lstm.jpg in the public folder.
+                </div>
+              </div>
+            </div>
+
+            {/* CNN Confusion Matrix */}
+            <div className="bg-white/70 backdrop-blur-lg border border-gray-300 rounded-2xl shadow-md p-6 transition-all hover:shadow-lg">
+              <h3 className="text-xl font-semibold text-gray-800 mb-4 text-center">
+                3D-CNN Model
+              </h3>
+              <div className="flex justify-center">
+                <img 
+                  src="/confusion_cnn.jpg" 
+                  alt="CNN Confusion Matrix" 
+                  className="max-w-full h-auto rounded-lg shadow-sm"
+                  onError={(e) => {
+                    e.target.style.display = 'none';
+                    e.target.nextSibling.style.display = 'block';
+                  }}
+                />
+                <div className="hidden text-gray-500 text-sm">
+                  Confusion matrix not available. Place confusion_cnn.jpg in the public folder.
+                </div>
+              </div>
+            </div>
           </div>
-        ) : (
-          <ModelComparison lstmResult={lstmResult} cnnResult={cnnResult} />
-        )}
+        </div>
 
         <p className="text-gray-600 mt-10 text-base md:text-lg max-w-2xl mx-auto leading-relaxed">
           Both <span className="font-semibold text-gray-800">LSTM</span> and{" "}
